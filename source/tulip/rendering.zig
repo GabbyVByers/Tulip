@@ -258,12 +258,10 @@ pub const Window = struct {
     return true;
   }
   
-  pub fn clear() void {
+  pub fn clear(color: Color) void {
     
-    std.debug.assert(global.window != null);
     std.debug.assert(global.device != null);
     std.debug.assert(frame.command_buffer == null);
-    std.debug.assert(frame.swapchain_texture == null);
     
     frame.command_buffer = SDL.SDL_AcquireGPUCommandBuffer(global.device);
     if (frame.command_buffer == null) {
@@ -271,11 +269,101 @@ pub const Window = struct {
       std.process.exit(EXIT_FAILURE);
     }
     
-    if (!SDL.SDL_WaitAndAcquireGPUSwapchainTexture(frame.command_buffer, global.window, &frame.swapchain_texture, &frame.dimensions.x, &frame.dimensions.y)) {
+    std.debug.assert(global.window != null);
+    std.debug.assert(frame.swapchain_texture == null);
+    
+    var width: u32 = undefined;
+    var height: u32 = undefined;
+    if (!SDL.SDL_WaitAndAcquireGPUSwapchainTexture(frame.command_buffer, global.window, &frame.swapchain_texture, &width, &height)) {
       std.debug.print("SDL Error: {s}\n", .{ SDL.SDL_GetError() });
       std.process.exit(EXIT_FAILURE);
     }
     
+    std.debug.assert(width < std.math.maxInt(i32));
+    std.debug.assert(height < std.math.maxInt(i32));
+    
+    const prev_dimensions: Vec2(i32) = .{
+      .x = global.dimensions.x,
+      .y = global.dimensions.y,
+    };
+    
+    global.dimensions = .{
+      .x = @intCast(width),
+      .y = @intCast(height),
+    };
+    
+    if ((prev_dimensions.x != global.dimensions.x) or (prev_dimensions.y != global.dimensions.y)) {
+      std.debug.assert(global.depth_texture != null);
+      SDL.SDL_ReleaseGPUTexture(global.device, global.depth_texture);
+      global.depth_texture = null;
+      
+      const depth_texture_create_info: SDL.SDL_GPUTextureCreateInfo = .{
+        .type = SDL.SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL.SDL_GPU_TEXTUREFORMAT_D16_UNORM,
+        .usage = SDL.SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+        .width = @intCast(global.dimensions.x),
+        .height = @intCast(global.dimensions.y),
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL.SDL_GPU_SAMPLECOUNT_1
+      };
+      
+      global.depth_texture = SDL.SDL_CreateGPUTexture(global.device, &depth_texture_create_info);
+      if (global.depth_texture == null) {
+        std.debug.print("SDL Error: {s}\n", .{ SDL.SDL_GetError() });
+        std.process.exit(EXIT_FAILURE);
+      }
+    }
+    
+    const color_target_info: SDL.SDL_GPUColorTargetInfo = .{
+      .clear_color = .{
+        .r = color.r,
+        .g = color.g,
+        .b = color.b,
+        .a = color.a,
+      },
+      .load_op = SDL.SDL_GPU_LOADOP_CLEAR,
+      .store_op = SDL.SDL_GPU_STOREOP_STORE,
+      .texture = frame.swapchain_texture,
+    };
+    
+    const depth_stencil_target_info: SDL.SDL_GPUDepthStencilTargetInfo = .{
+      .texture = global.depth_texture,
+      .clear_depth = 1,
+      .load_op = SDL.SDL_GPU_LOADOP_CLEAR,
+      .store_op = SDL.SDL_GPU_STOREOP_DONT_CARE,      
+      .stencil_load_op = SDL.SDL_GPU_LOADOP_DONT_CARE,
+      .stencil_store_op = SDL.SDL_GPU_STOREOP_DONT_CARE,
+      .cycle = true
+    };
+    
+    std.debug.assert(frame.render_pass == null);
+    std.debug.assert(global.graphics_pipeline != null);
+    
+    frame.render_pass = SDL.SDL_BeginGPURenderPass(frame.command_buffer, &color_target_info, 1, &depth_stencil_target_info);
+    if (frame.render_pass == null) {
+      std.debug.print("SDL Error: {s}\n", .{ SDL.SDL_GetError() });
+      std.process.exit(EXIT_FAILURE);
+    }
+    
+    SDL.SDL_BindGPUGraphicsPipeline(frame.render_pass, global.graphics_pipeline);
+  }
+  
+  pub fn render() void {
+    
+    std.debug.assert(frame.render_pass != null);
+    std.debug.assert(frame.command_buffer != null);
+    std.debug.assert(frame.swapchain_texture != null);
+    
+    SDL.SDL_EndGPURenderPass(frame.render_pass);
+    if (!SDL.SDL_SubmitGPUCommandBuffer(frame.command_buffer)) {
+      std.debug.print("SDL Error: {s}\n", .{ SDL.SDL_GetError() });
+      std.process.exit(EXIT_FAILURE);
+    }
+    
+    frame.render_pass = null;
+    frame.command_buffer = null;
+    frame.swapchain_texture = null;
   }
   
   pub fn vsync(toggle: bool) void {

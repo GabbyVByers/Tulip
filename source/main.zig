@@ -14,10 +14,9 @@ pub fn main() void {
   Window.vsync(false);
   defer Window.destroy();
   
-  
   while (Window.isOpen()) {
-    
+    Window.clear(.{ .r = 1, .g = 0, .b = 1, .a = 1 });
+    Window.render();
   }
-  
 }
 
