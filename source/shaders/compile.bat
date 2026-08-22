@@ -18,11 +18,14 @@
 ::
 
 @echo off
-echo Compiling Shaders (Using GLSLC From VULKAN SDK):
+echo Compiling...
 
 @echo on
 glslc "shader.vert" -o "vertex.spv"
 glslc "shader.frag" -o "fragment.spv"
+
+@echo off
+echo Done!
 
 @echo off
 pause

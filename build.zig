@@ -1,8 +1,8 @@
 const std = @import("std");
 
-const sdl_include_path = "libraries/SDL3-3.4.14/include";
-const sdl_import_library_path = "libraries/SDL3-3.4.14/lib/x64/SDL3.lib";
-const sdl_dll_path = "libraries/SDL3-3.4.14/lib/x64/SDL3.dll";
+const sdl_include_path: []const u8 = "libraries/SDL3-3.4.14/include";
+const sdl_import_library_path: []const u8 = "libraries/SDL3-3.4.14/lib/x64/SDL3.lib";
+const sdl_dll_path: []const u8 = "libraries/SDL3-3.4.14/lib/x64/SDL3.dll";
 
 pub fn build(b: *std.Build) void {
   

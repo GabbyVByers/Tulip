@@ -10,7 +10,14 @@ const Tulip = @import("Tulip");
 const Window = Tulip.Window;
 
 pub fn main() void {
-  Window.create("App Title", 0, 0);
-  std.process.exit(EXIT_SUCCESS);
+  Window.create("App Title", 500, 500);
+  Window.vsync(false);
+  defer Window.destroy();
+  
+  
+  while (Window.isOpen()) {
+    
+  }
+  
 }
 
